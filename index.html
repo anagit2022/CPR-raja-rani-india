@@ -61,6 +61,26 @@
 
     </div>
 
+<div class="screen" id="nameEntry">
+
+    <img src="hero.png" id="girl">
+
+    <div class="nameHeading">Before we begin,<br>what's your name?</div>
+
+    <div class="nameSubtext">We'll use it to track your practice progress</div>
+
+    <input
+        id="nameInput"
+        class="questionInput"
+        placeholder="Type your name here">
+
+    <img
+        src="nextq.png"
+        id="nameNext"
+        class="nextQuestion">
+
+</div>
+
 <div class="screen" id="preq1">
 
     <img src="hero.png" id="girl">
@@ -639,6 +659,8 @@
 
       <img src="practice again button.png" id="practiceagainbtnraja" />
 
+      <div class="checkProgressBtn" id="checkProgressBtnRaja">📊 My Progress</div>
+
     </div> 
 
       
@@ -692,6 +714,8 @@
       </div>
 
       <img src="practice again button.png" id="practiceagainbtnrani" />
+
+      <div class="checkProgressBtn" id="checkProgressBtnRani">📊 My Progress</div>
 
     </div> 
 
@@ -1924,6 +1948,39 @@
     </div>    
 
 
+
+    <div class="screen" id="progressScreen">
+
+      <div class="progressCard">
+
+        <div class="progressCardTitle">📈 <span id="progressUserName">Friend</span>'s Progress</div>
+
+        <canvas id="progressChartCanvas" width="320" height="180"></canvas>
+
+        <div class="progressStats">
+
+          <div class="progressStat">
+            <div class="progressStatValue" id="progressBest">--</div>
+            <div class="progressStatLabel">Best Score</div>
+          </div>
+
+          <div class="progressStat">
+            <div class="progressStatValue" id="progressAvg">--</div>
+            <div class="progressStatLabel">Average</div>
+          </div>
+
+          <div class="progressStat">
+            <div class="progressStatValue" id="progressCount">0</div>
+            <div class="progressStatLabel">Attempts</div>
+          </div>
+
+        </div>
+
+        <div class="progressBackBtn" id="progressBackBtn">Back</div>
+
+      </div>
+
+    </div>
 
     <main>
 
