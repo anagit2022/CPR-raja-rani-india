@@ -1,3 +1,4 @@
+let userName = "";        // learner's name, used to track their progress
 let genderState = null;   // 1 = Raja, 0 = Rani
 // pre question answers
 let preAnswers = {
@@ -167,6 +168,128 @@ function showCompressionScore() {
       denomEl.textContent = "/" + maxTotalCompressions;
     }
   });
+
+  // 5. Save this attempt to the learner's progress history
+  logProgress();
+}
+
+// =====================================================
+// PROGRESS TRACKING
+// Saves every attempt's compression score (per learner
+// name) to localStorage so it can be graphed later.
+// =====================================================
+function logProgress() {
+  try {
+    const record = {
+      name: userName || "Friend",
+      score: good_compression,
+      max: maxTotalCompressions,
+      percent: maxTotalCompressions > 0
+        ? Math.round((good_compression / maxTotalCompressions) * 100)
+        : 0,
+      date: new Date().toISOString()
+    };
+    const log = JSON.parse(localStorage.getItem("cprProgressLog") || "[]");
+    log.push(record);
+    localStorage.setItem("cprProgressLog", JSON.stringify(log));
+  } catch (e) {
+    console.error("Could not save progress:", e);
+  }
+}
+
+function getUserProgress() {
+  try {
+    const log = JSON.parse(localStorage.getItem("cprProgressLog") || "[]");
+    return log.filter(r => r.name === (userName || "Friend"));
+  } catch (e) {
+    return [];
+  }
+}
+
+// Draws a simple line chart of the learner's compression
+// accuracy (%) over each of their practice attempts.
+function renderProgressChart() {
+  const records = getUserProgress();
+  const canvas = document.getElementById("progressChartCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  // Match canvas resolution to its displayed CSS size for a crisp draw
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || 320;
+  const cssHeight = canvas.clientHeight || 180;
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const nameLabel = document.getElementById("progressUserName");
+  if (nameLabel) nameLabel.textContent = userName || "Friend";
+
+  const bestEl = document.getElementById("progressBest");
+  const avgEl = document.getElementById("progressAvg");
+  const countEl = document.getElementById("progressCount");
+
+  if (records.length === 0) {
+    ctx.fillStyle = "#999";
+    ctx.font = "14px 'Albert Sans', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No practice sessions yet — try a mission!", cssWidth / 2, cssHeight / 2);
+    if (bestEl) bestEl.textContent = "--";
+    if (avgEl) avgEl.textContent = "--";
+    if (countEl) countEl.textContent = "0";
+    return;
+  }
+
+  const percents = records.map(r => r.percent);
+  const best = Math.max(...percents);
+  const avg = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
+
+  if (bestEl) bestEl.textContent = best + "%";
+  if (avgEl) avgEl.textContent = avg + "%";
+  if (countEl) countEl.textContent = records.length;
+
+  const padding = 28;
+  const w = cssWidth - padding * 2;
+  const h = cssHeight - padding * 2;
+
+  // gridlines + y-axis labels (0/25/50/75/100%)
+  ctx.strokeStyle = "#eee";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#aaa";
+  ctx.font = "10px 'Albert Sans', sans-serif";
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const y = padding + h - (h * i) / 4;
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(padding + w, y);
+    ctx.stroke();
+    ctx.fillText(i * 25 + "%", padding - 6, y + 3);
+  }
+
+  // the line connecting each attempt's accuracy
+  ctx.strokeStyle = "#F25C3B";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  records.forEach((r, i) => {
+    const x = records.length === 1 ? padding + w / 2 : padding + (w * i) / (records.length - 1);
+    const y = padding + h - (h * Math.min(r.percent, 100)) / 100;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // a dot for each attempt
+  ctx.fillStyle = "#F25C3B";
+  records.forEach((r, i) => {
+    const x = records.length === 1 ? padding + w / 2 : padding + (w * i) / (records.length - 1);
+    const y = padding + h - (h * Math.min(r.percent, 100)) / 100;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 // setup question function 
 function setupQuestion(config) {
@@ -230,6 +353,13 @@ function setupQuestion(config) {
 window.onload = () => {
     // --- Screen Element Definitions ---
    const consent = document.getElementById("consent"); 
+  const nameEntry = document.getElementById("nameEntry");
+  const nameInput = document.getElementById("nameInput");
+  const nameNext = document.getElementById("nameNext");
+  const progressScreen = document.getElementById("progressScreen");
+  const checkProgressBtnRaja = document.getElementById("checkProgressBtnRaja");
+  const checkProgressBtnRani = document.getElementById("checkProgressBtnRani");
+  const progressBackBtn = document.getElementById("progressBackBtn");
   const preq1 = document.getElementById("preq1");
   const preq1input = document.getElementById("preq1input");
   const preq1Next = document.getElementById("preq1Next");
@@ -587,12 +717,31 @@ const postq7Next = document.getElementById("postq7Next");
 
    const handleConsent = () => {
         consent.style.display = "none";
-        preq1.style.display = "flex"
+        nameEntry.style.display = "flex";
         //begin1.style.display = "flex";
       //logSession();
     };
     consentBtn.onclick = handleConsent;
     consentBtn.addEventListener('touchstart', handleConsent);
+
+    // Prefill with last-used name, if any
+    try {
+        const savedName = localStorage.getItem("cprUserName");
+        if (savedName) nameInput.value = savedName;
+    } catch (e) { /* localStorage unavailable, ignore */ }
+
+    const handleNameNext = () => {
+        const typed = nameInput.value.trim();
+        userName = typed !== "" ? typed : "Friend";
+        try {
+            localStorage.setItem("cprUserName", userName);
+        } catch (e) { /* localStorage unavailable, ignore */ }
+
+        nameEntry.style.display = "none";
+        preq1.style.display = "flex";
+    };
+    nameNext.onclick = handleNameNext;
+    nameNext.addEventListener('touchstart', handleNameNext);
     preq1input.addEventListener("input", function () {
 
     if (preq1input.value.trim() !== "") {
@@ -1185,6 +1334,36 @@ postq7Next.addEventListener("touchstart", handlePostQ7Next);
     };
     practiceagainbtnrani.onclick = handlePracticeAgainRani;
     practiceagainbtnrani.addEventListener('touchstart', handlePracticeAgainRani);
+
+    // ========================================
+    // CHECK PROGRESS BUTTON
+    // ========================================
+    const openProgress = (fromScreen) => {
+        fromScreen.style.display = "none";
+        progressScreen.style.display = "flex";
+        renderProgressChart();
+    };
+
+    if (checkProgressBtnRaja) {
+        checkProgressBtnRaja.addEventListener('click', () => openProgress(promisesealedraja));
+        checkProgressBtnRaja.addEventListener('touchstart', () => openProgress(promisesealedraja));
+    }
+    if (checkProgressBtnRani) {
+        checkProgressBtnRani.addEventListener('click', () => openProgress(promisesealedrani));
+        checkProgressBtnRani.addEventListener('touchstart', () => openProgress(promisesealedrani));
+    }
+    if (progressBackBtn) {
+        const closeProgress = () => {
+            progressScreen.style.display = "none";
+            if (genderState === 1) {
+                promisesealedraja.style.display = "flex";
+            } else {
+                promisesealedrani.style.display = "flex";
+            }
+        };
+        progressBackBtn.addEventListener('click', closeProgress);
+        progressBackBtn.addEventListener('touchstart', closeProgress);
+    }
 
 
     const handleNextAmb = () => {
@@ -1952,4 +2131,3 @@ function touchStarted() {
         return false;
     }
 }
-
